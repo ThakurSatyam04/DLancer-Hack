@@ -5,89 +5,132 @@ import { BsCheckLg } from "react-icons/bs";
 import { useStateProvider } from "../../context/StateContext";
 import { useRouter } from "next/router";
 import { useStateProviderBlock } from "../../context/StateContext_Block";
-import {ethers} from "ethers"
-import Escrow from '../../abis/Escrow.json';
+import { ethers } from "ethers";
+import Escrow from "../../abis/Escrow.json";
+
 function Pricing() {
   const [{ gigData, userInfo }, dispatch] = useStateProvider();
   const router = useRouter();
-  console.log(userInfo)
+  console.log(userInfo);
 
   //Blockchain
-  const [freelancer, setFreelancer] = useState("")
-  const [escrowContract, setEscrowContract] = useState('');
-  const [escrowAddress, setEscrowAddress] = useState('');
+  const [freelancer, setFreelancer] = useState("");
+  let [escrowContract, setEscrowContract] = useState(null);
+  const [isrequestSent, setIsRequestSent] = useState(false);
+  const [escrowAddress, setEscrowAddress] = useState("");
   const [isDeposit, setIsDeposit] = useState(false);
-  const projectAmount = 200
-  const client = "0x297Fc005eb3dd5A108C2969806c418A298881f53"
-  const submissionDeadline = 10
+  const [isWorkReceived, setIsWorkRecieved] = useState(false);
+  const projectAmount = 200;
+  const client = "0x297Fc005eb3dd5A108C2969806c418A298881f53";
+  const submissionDeadline = 10;
   // const arbiter = "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"
-  const arbiter = "0xeE206C66bA18253f04B35e8f8cBC2AA86f9e01aC"
+  const arbiter = "0xeE206C66bA18253f04B35e8f8cBC2AA86f9e01aC";
   const { state } = useStateProviderBlock();
   const currentAddress = state.currentAddress;
   const signer = state.signer;
-  const freelanceContractAddress = state.freelanceContractAddress
-  const freelanceTokenContract = state.freelanceTokenContract
-  console.log(freelancer)
+  const freelanceContractAddress = state.freelanceContractAddress;
+  const freelanceTokenContract = state.freelanceTokenContract;
+  console.log(freelancer);
+
+  const storeObject = (key, object) => {
+    localStorage.setItem(key, JSON.stringify(object));
+  };
+
+  const fetchObject = (key) => {
+    const storedObject = localStorage.getItem(key);
+    return storedObject ? JSON.parse(storedObject) : null;
+  };
 
   const createEscrowContract = async () => {
     try {
-        const EscrowFactory = new ethers.ContractFactory(Escrow.abi, Escrow.bytecode, signer);
-        // const EscrowFactory = new ethers.ContractFactory(Escrow.abi, Escrow.bytecode, client);
+      const EscrowFactory = new ethers.ContractFactory(
+        Escrow.abi,
+        Escrow.bytecode,
+        signer
+      );
 
-        // console.log("Abi :", Escrow.abi)
-        // console.log("bytecode :", Escrow.bytecode)
-        // console.log("arbiterAddress: ", arbiter);
-        // console.log("freelanceContractAddress address: ", freelanceContractAddress);
-        
-        const escrowContract = await EscrowFactory.deploy(client, freelancer, arbiter, freelanceContractAddress, submissionDeadline);
-    
-        // setFreelancer(freelancer)
-        // const freelancerAddress = await escrowContract.freelancer();
-        // setFreelancer(freelancerAddress);
-        console.log("Freelancer address set in contract:", freelancer);
-        
-        setEscrowContract(escrowContract);
-        
-        const escrowAddress = await escrowContract.getAddress();
-        setEscrowAddress(escrowAddress);
-        
-        console.log("Escrow address : ", escrowAddress)
-        alert('Escrow contract deployed successfully');
+      const escrowContract = await EscrowFactory.deploy(
+        client,
+        freelancer,
+        arbiter,
+        freelanceContractAddress,
+        submissionDeadline
+      );
+      console.log(escrowContract);
+
+      storeObject("Escrowcontract", escrowContract);
+      console.log("Freelancer address set in contract:", freelancer);
+
+      const escrowAddress = await escrowContract.getAddress();
+      setEscrowAddress(escrowAddress);
+
+      console.log("Escrow address : ", escrowAddress);
+      alert("Escrow contract deployed successfully");
     } catch (error) {
-        console.error('Error deploying escrow contract:', error);
+      console.error("Error deploying escrow contract:", error);
     }
-};
+  };
 
-const deposit = async (amount) => {
-  try {
+  console.log("freelanceContractAddress", freelanceContractAddress);
+  console.log("escrowContract", escrowContract);
+  console.log("client", client);
+
+  const deposit = async (amount) => {
+    setEscrowContract(fetchObject("Escrowcontract"));
+    console.log("This escrow contract from localhost", escrowContract);
+    try {
       if (freelanceTokenContract && escrowContract && currentAddress) {
-          // const tx = await freelanceTokenContract.approve(await escrowContract.getAddress(),  ethers.parseEther(amount.toString()));
-          const tx = await freelanceTokenContract.approve(escrowAddress,  ethers.parseEther(amount.toString()));
-          await tx.wait();
-          const depositTx = await escrowContract.deposit(ethers.parseEther(amount.toString()));
-          await depositTx.wait();
+        const tx = await freelanceTokenContract.approve(
+          escrowAddress,
+          ethers.parseEther(amount.toString())
+        );
+        await tx.wait();
+        const depositTx = await escrowContract.deposit(
+          ethers.parseEther(amount.toString())
+        );
+        await depositTx.wait();
+        setIsWorkRecieved(true);
       } else {
-          alert('Only the client can deposit funds.');
+        alert("Only the client can deposit funds.");
       }
-  } catch (error) {
-      console.error('Error during deposit:', error);
-  }
-  
-};
+    } catch (error) {
+      console.error("Error during deposit:", error);
+    }
+  };
 
-  const handleRequest = async ()=>{
-    setFreelancer(currentAddress)
-    await createEscrowContract()
-    setIsDeposit(true)
-  }
+  const submitWork = async (fileUrl) => {
+    console.log("escrowContract: ", escrowContract);
+    try {
+      if (escrowContract && currentAddress === freelancer) {
+        const tx = await escrowContract.submitWork(fileUrl);
+        await tx.wait();
+        setFileUrl(fileUrl);
+      } else {
+        alert("Only the freelancer can submit work.");
+      }
+    } catch (error) {
+      console.error("Error during work submission:", error);
+    }
+  };
+
+  const handleRequest = async () => {
+    setFreelancer(currentAddress);
+    await createEscrowContract();
+    setIsDeposit(true);
+  };
 
   const handleDeposit = () => {
     deposit(projectAmount);
-  }
+  };
 
-  useEffect(()=>{
-    setFreelancer(currentAddress)
-  })
+  const hanldeRequestSent = () => {
+    setIsRequestSent(true);
+    alert("Request sent successfully");
+  };
+
+  useEffect(() => {
+    setFreelancer(currentAddress);
+  });
 
   return (
     <>
@@ -123,42 +166,83 @@ const deposit = async (amount) => {
             </ul>
             {gigData.userId === userInfo.id ? (
               <div className="flex flex-col gap-5 w-full">
-                 <button
-                className="flex items-center bg-[#1DBF73] text-white py-2 justify-center font-bold text-lg relative rounded"
-                onClick={() => router.push(`/freelancer/gigs/${gigData.id}`)}
-              >
-                <span>Edit</span>
-                <BiRightArrowAlt className="text-2xl absolute right-4" />
-              </button>
-             { <span>Request from: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 </span>}
+                <button
+                  className="flex items-center bg-[#1DBF73] text-white py-2 justify-center font-bold text-lg relative rounded"
+                  onClick={() => router.push(`/freelancer/gigs/${gigData.id}`)}
+                >
+                  <span>Edit</span>
+                  <BiRightArrowAlt className="text-2xl absolute right-4" />
+                </button>
+                {
+                  <span>
+                    Request from: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266{" "}
+                  </span>
+                }
 
-             { <button
-                onClick={handleRequest}
-                className="flex items-center bg-[#1DBF73] text-white py-2 justify-center font-bold text-lg relative rounded"
-              >
-                <span>Approve</span>
-                <BiRightArrowAlt className="text-2xl absolute right-4" />
-              </button>}
+                {
+                  <button
+                    onClick={handleRequest}
+                    className="flex items-center bg-[#1DBF73] text-white py-2 justify-center font-bold text-lg relative rounded"
+                  >
+                    <span>Approve</span>
+                    <BiRightArrowAlt className="text-2xl absolute right-4" />
+                  </button>
+                }
 
-             {isDeposit && <button
-                onClick={handleDeposit}
-                className="flex items-center bg-[#1DBF73] text-white py-2 justify-center font-bold text-lg relative rounded"
-              >
-                <span>Deposit</span>
-                <BiRightArrowAlt className="text-2xl absolute right-4" />
-              </button>}
+                {isDeposit && (
+                  <button
+                    onClick={handleDeposit}
+                    className="flex items-center bg-[#1DBF73] text-white py-2 justify-center font-bold text-lg relative rounded"
+                  >
+                    <span>Deposit</span>
+                    <BiRightArrowAlt className="text-2xl absolute right-4" />
+                  </button>
+                )}
+
+                {isWorkReceived && (
+                  <button
+                    onClick={handleDeposit}
+                    className="flex items-center bg-[#1DBF73] text-white py-2 justify-center font-bold text-lg relative rounded"
+                  >
+                    <span>Work Received</span>
+                    <BiRightArrowAlt className="text-2xl absolute right-4" />
+                  </button>
+                )}
               </div>
-             
             ) : (
-              <button
-                className="flex items-center bg-[#1DBF73] text-white py-2 justify-center font-bold text-lg relative rounded"
-                
-              >
-                <span>Send Request</span>
-                <BiRightArrowAlt className="text-2xl absolute right-4" />
-              </button>
+              <div className="w-full flex flex-col">
+                <button
+                  className="flex items-center bg-[#1DBF73] text-white py-2 justify-center font-bold text-lg relative rounded"
+                  onClick={hanldeRequestSent}
+                >
+                  {isrequestSent ? (
+                    <span>Request Sent</span>
+                  ) : (
+                    <span>Send Request</span>
+                  )}
+                  <BiRightArrowAlt className="text-2xl absolute right-4" />
+                </button>
+                <div className="mt-4 mb-4 flex h-[50px]">
+                <input
+                  type="text"
+                  className="border p-3 border-black  rounded-lg"
+                  id="fileUrl"
+                  placeholder="File URL"
+                />
+                <button
+                  className="focus:outline-none text-white bg-blue-700 hover:bg-blue-800  font-medium  text-lg px-10 py-3 rounded-md ml-4"
+                  onClick={() =>
+                    submitWork(document.getElementById("fileUrl").value)
+                  }
+                >
+                  Submit
+                </button>
+              </div>
+              </div>
             )}
+            
           </div>
+          
           {gigData.userId !== userInfo.id && (
             <div className="flex items-center justify-center mt-5">
               <button className=" w-5/6 hover:bg-[#74767e] py-1 border border-[#74767e] px-5 text-[#6c6d75] hover:text-white transition-all duration-300 text-lg rounded font-bold">

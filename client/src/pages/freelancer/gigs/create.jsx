@@ -150,7 +150,7 @@ function CreateGigs() {
         <div className="">
           <span className="text-lg">Please mint token before creating gig</span>
           <div className="flex flex-col gap-2">
-            <input type="number" id="mintAmount" placeholder="Amount" />
+            <input className="border border-2xl p-2 border-black" type="number" id="mintAmount" placeholder="Amount" />
             <button
               onClick={() =>
                 mintTokens(document.getElementById("mintAmount").value)
