@@ -91,7 +91,7 @@ function Pricing() {
         await depositTx.wait();
         setIsWorkRecieved(true);
       } else {
-        alert("Only the client can deposit funds.");
+        alert("Funds deposited in Escrow");
       }
     } catch (error) {
       console.error("Error during deposit:", error);
